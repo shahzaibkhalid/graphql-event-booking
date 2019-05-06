@@ -1,9 +1,9 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const graphqlHttp = require('express-graphql');
-const { buildSchema } = require('graphql');
 const { connect } = require('mongoose');
-const Event = require('./models/event');
+const graphQLSchema = require('./graphql/schema');
+const resolvers = require('./graphql/resolvers');
 
 const app = express();
 
@@ -13,60 +13,8 @@ const mongoDBUrl = `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_
 
 app.use(bodyParser.json());
 app.use(endpoint, graphqlHttp({
-  schema: buildSchema(`
-    type Event {
-      _id: ID!
-      title: String!
-      description: String!
-      price: Float!
-      date: String!
-    }
-
-    input EventInput {
-      title: String!
-      description: String!
-      price: Float!
-      date: String!
-    }
-
-    type RootQuery {
-      events: [Event!]!
-    }
-
-    type RootMutation {
-      createEvent(eventInput: EventInput): Event!
-    }
-
-    schema {
-      query: RootQuery
-      mutation: RootMutation
-    }
-  `),
-  rootValue: {
-    async events(args) {
-      try {
-        const events = await Event.find();
-        return events.map(event => ({...event._doc}));
-      } catch(error) {
-        throw new Error(error);
-      }
-    },
-    async createEvent(args) {
-      try {
-        const { title, description, price, date } = args.eventInput;
-        const event = new Event({
-          title,
-          description,
-          price,
-          date: new Date(date)
-        });
-        const savedEvent = await event.save();
-        return {...savedEvent._doc};
-      } catch(error) {
-        throw new Error(error);
-      }
-    }
-  },
+  schema: graphQLSchema,
+  rootValue: resolvers,
   graphiql: true,
 }));
 
